@@ -715,6 +715,57 @@ void img_blit(void)
 	}
 }
 
+// ( img1 img2 -- flag )
+void img_equal(void)
+{
+	int img2 = dpop();
+	int img1 = dpop();
+
+	if (!is_img(img2))
+	{
+		printf("img= error: img2 not an image\n");
+		dpush(0);
+	}
+
+	if (!is_img(img1))
+	{
+		printf("img= error: img1 not an image\n");
+		dpush(0);
+	}
+
+	// Images equal themselves
+	if (img1 == img2)
+	{
+		dpush(1);
+		return;
+	}
+
+	struct Image *p1 = imagesArr[img1];
+	struct Image *p2 = imagesArr[img2];
+
+	// Compare sizes
+	if (p1->height != p2->height || p1->width != p2->width)
+	{
+		dpush(0);
+		return;
+	}
+
+	// Compare contents
+	int size = p1->width * p1->height;
+	for (int i = 0; i < size; i++)
+	{
+		if (p1->colors[i] != p2->colors[i])
+		{
+			dpush(0);
+			return;
+		}
+	}
+
+	// Equal
+	dpush(1);
+	return;
+}
+
 struct WordLookup words[] =
 {
 	{ 1, "+",     add,       2, 1 },
@@ -758,6 +809,7 @@ struct WordLookup words[] =
 	{ 4,"line",     img_line,   6, 1 }, // ( img x0 y0 x1 y1 val -- img ) draw line
 	{ 4, "crop",    img_crop,   5, 1 }, // ( img x0 y0 w h -- img ) crop image to rect
 	{ 4, "blit",    img_blit,   4, 1 }, // ( img1 img2 x0 y0 -- img1 ) blit img2 onto img1
+	{ 4, "img=",    img_equal,  2, 1 }, // ( img1 img2 -- flag ) see if 2 images have same data
 };
 struct WordDict dict =
 {
