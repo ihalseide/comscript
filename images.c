@@ -562,15 +562,18 @@ void img_load(void)
 
 	// Alloc new image struct
 	struct Image *new = malloc(sizeof(*new));
+	assert(new);
 	int size = width * height;
 	new->width = width;
 	new->height = height;
 	new->colors = malloc(size * sizeof(*new->colors));
+	assert(new->colors);
 
 	// Copy image data
+	int *dataI = (int *)data;
 	for (int i = 0; i < size; i++)
 	{
-		new->colors[i] = data[i];
+		new->colors[i] = dataI[i];
 	}
 	// Done with loaded data
 	stbi_image_free(data);
