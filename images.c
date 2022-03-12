@@ -7,6 +7,10 @@
 #define COMSCRIPT_IMPLEMENTATION
 #include "comscript.h"
 
+#define STBI_ONLY_PNG
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
@@ -33,6 +37,26 @@ struct Image **imagesArr = NULL;
 
 // Array for holding allocated code quotations
 struct CodeQuote **quotesArr = NULL;
+
+// Add an image pointer to the imagesArr and return image ID/index.
+int ImageAdd(struct Image *p)
+{
+	// Look for NULL spots in the array
+	for (int i = 0; i < arrlen(imagesArr); i++)
+	{
+		if (imagesArr[i] == NULL)
+		{
+			imagesArr[i] = p;
+			dpush(i);
+			return i;
+		}
+	}
+
+	// No holes found, or imagesArr is empty
+	int i = arrlen(imagesArr);
+	arrpush(imagesArr, p);
+	return i;
+}
 
 int is_img(int i)
 {
@@ -279,9 +303,9 @@ void img_line(void)
 	}
 }
 
+// ( width height -- imgID )
 void img_alloc(void)
 {
-
 	int height = dpop();
 	int width = dpop();
 	int size = width * height;
@@ -291,21 +315,7 @@ void img_alloc(void)
 	new->height = height;
 	new->colors = malloc(size * sizeof(*new->colors));
 
-	// Add it to the allocated array
-	// Look for holes
-	for (int i = 0; i < arrlen(imagesArr); i++)
-	{
-		if (imagesArr[i] == NULL)
-		{
-			imagesArr[i] = new;
-			dpush(i);
-			return;
-		}
-	}
-	// No holes
-	int i = arrlen(imagesArr);
-	arrpush(imagesArr, new);
-	dpush(i);
+	dpush(ImageAdd(new));
 }
 void img_free(void)
 {
@@ -510,7 +520,7 @@ void img_save(void)
 
 	// Create name
 	char name[100];
-	snprintf(name, sizeof(name), "save-%d.png", suffix);
+	snprintf(name, sizeof(name), "img-%d.png", suffix);
 
 	int width = p->width;
 	int height = p->height;
@@ -527,9 +537,46 @@ void img_save(void)
 // ( name -- img )
 void img_load(void)
 {
-	// TODO: implement
-	dpop();
-	dpush(-1);
+	int name = dpop();
+
+	char fname[100];
+	snprintf(fname, sizeof(fname), "img-%d.png", name);
+
+	// Load PNG image file
+	const int requiredN = 4;
+	int width, height, n;
+	unsigned char *data = stbi_load(fname, &width, &height, &n, requiredN);
+	if (!data)
+	{
+		printf("could not load image file \"%s\"\n", fname);
+		dpush(-1);
+		return;
+	}
+	if (n != requiredN)
+	{
+		printf("could not load image file \"%s\" with %d channels (%d required)\n",
+				fname, n, requiredN);
+		dpush(-1);
+		return;
+	}
+
+	// Alloc new image struct
+	struct Image *new = malloc(sizeof(*new));
+	int size = width * height;
+	new->width = width;
+	new->height = height;
+	new->colors = malloc(size * sizeof(*new->colors));
+
+	// Copy image data
+	for (int i = 0; i < size; i++)
+	{
+		new->colors[i] = data[i];
+	}
+	// Done with loaded data
+	stbi_image_free(data);
+
+	dpush(ImageAdd(new));
+	return;
 }
 
 void bye(void)
