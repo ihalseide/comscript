@@ -1,3 +1,0 @@
-10 20 alloc 1 save free
-1 load width . height . free
-
