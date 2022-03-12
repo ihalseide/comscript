@@ -1,6 +1,0 @@
-64 dup alloc
-0 value clear
-0 0 2 2 255 0 0 rgb fillrect
-32 32 2 2 255 0 0 rgb fillrect
-55 save free
-
