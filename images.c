@@ -1,4 +1,4 @@
-#include <stdlib.h>
+#include <stdlib.h> 
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
@@ -150,7 +150,7 @@ void img_rect(void)
 		int i;
 		i = x + y0 * imgW;
 		p->colors[i] = val;
-		i = x + (y0 + h) * imgW;
+		i = x + (y0 + h - 1) * imgW;
 		p->colors[i] = val;
 	}
 
@@ -160,7 +160,7 @@ void img_rect(void)
 		int i;
 		i = x0 + y * imgW;
 		p->colors[i] = val;
-		i = (x0 + w) + y * imgW;
+		i = (x0 + w - 1) + y * imgW;
 		p->colors[i] = val;
 	}
 }
@@ -209,7 +209,74 @@ void img_fillrect(void)
 // ( img x0 y0 x1 y1 val -- img ) draw line
 void img_line(void)
 {
+	int val = dpop();
+	int y1 = dpop();
+	int x1 = dpop();
+	int y0 = dpop();
+	int x0 = dpop();
+	int img = dtop();
 
+	if (!is_img(img))
+	{
+		printf("error: line: not an image\n");
+		return;
+	}
+	struct Image *p = imagesArr[img];
+
+	if (x0 < 0 || x0 >= p->width)
+	{
+		printf("error: line: x0 out of bounds\n");
+		return;
+	}
+
+	if (y0 < 0 || y0 >= p->height)
+	{
+		printf("error: line: y0 out of bounds\n");
+		return;
+	}
+
+	if (x1 < 0 || x1 >= p->width)
+	{
+		printf("error: line: x1 out of bounds\n");
+		return;
+	}
+
+	if (y1 < 0 || y1 >= p->height)
+	{
+		printf("error: line: y1 out of bounds\n");
+		return;
+	}
+
+	int dx = x1 - x0;
+	if (dx < 0) { dx = -dx; }
+    int sx = (x0 < x1)? 1 : -1;
+    int dy = y1 - y0;
+	if (dy > 0) { dy = -dy; }
+    int sy = (y0 < y1)? 1 : -1;
+    int error = dx + dy;
+	int e2;
+    while (1)
+	{
+		// Plot (x0, y0)
+		int i = x0 + y0 * p->width;
+		assert(0 <= i && i < p->width * p->height);
+		p->colors[i] = val;
+
+        if (x0 == x1 && y0 == y1) { break; }
+        e2 = 2 * error;
+        if (e2 >= dy)
+		{
+            if (x0 == x1) { break; }
+            error = error + dy;
+            x0 = x0 + sx;
+		}
+        if (e2 <= dx)
+		{
+            if (y0 == y1) { break; }
+            error = error + dx;
+            y0 = y0 + sy;
+		}
+	}
 }
 
 void img_alloc(void)
@@ -407,11 +474,6 @@ void space(void)
 	putchar(' ');
 }
 
-void line(void)
-{
-	putchar('\n');
-}
-
 void emit(void)
 {
 	putchar(dpop());
@@ -520,6 +582,89 @@ void do_quote(void)
 	}
 }
 
+// ( img x0 y0 w h -- img ) crop image to rect
+void img_crop(void)
+{
+	int h = dpop();
+	int w = dpop();
+	int y0 = dpop();
+	int x0 = dpop();
+	int img = dtop();
+
+	if (!is_img(img))
+	{
+		printf("resize: not an image: %d\n", img);
+		return;
+	}
+	struct Image *p = imagesArr[img];
+
+	if (x0 < 0 || y0 < 0
+			|| x0 >= p->width || y0 >= p->height
+			|| h <= 0 || w <= 0)
+	{
+		printf("resize: invalid region rectangle\n");
+		return;
+	}
+
+	// Create new colors array
+	int size = w * h;
+	int *newColors = malloc(size * sizeof(*newColors));
+	// Copy the pixels from img into the new colors
+	int i, val;
+	for (int x = 0; x < w && (x0 + x) < p->width; x++)
+	{
+		for (int y = 0; y < h && (y0 + y) < p->height; y++)
+		{
+			i = (x0 + x) + (y0 + y) * p->width; // index into img
+			val = p->colors[i];
+			i = x + y * w; // index into newColors
+			newColors[i] = val;
+		}
+	}
+
+	// Replace the image's colors
+	free(p->colors);
+	p->colors = newColors;
+	// Set the image's size
+	p->width = w;
+	p->height = h;
+}
+
+// ( img1 img2 x0 y0 -- img1 ) blit img2 onto img1
+void img_blit(void)
+{
+	int y0 = dpop();
+	int x0 = dpop();
+	int img2 = dpop();
+	int img1 = dtop();
+
+	if (!is_img(img2))
+	{
+		printf("blit: img2 not an image\n");
+		return;
+	}
+	struct Image *p2 = imagesArr[img2];
+
+	if (!is_img(img1))
+	{
+		printf("blit: img1 not an image\n");
+		return;
+	}
+	struct Image *p1 = imagesArr[img1];
+
+	int i, val;
+	for (int x = 0; x < p2->width && (x0 + x) < p1->width; x++)
+	{
+		for (int y = 0; y < p2->height && (y0 + y) < p1->height; y++)
+		{
+			i = x + y * p2->width;
+			val = p2->colors[i];
+			i = (x0 + x) + (y0 + y) * p1->width;
+			p1->colors[i] = val;
+		}
+	}
+}
+
 struct WordLookup words[] =
 {
 	{ 1, "+",     add,       2, 1 },
@@ -536,7 +681,6 @@ struct WordLookup words[] =
 	{ 2, ".s",    dispstack, 0, 0 },
 	{ 1, ".",     dprint,    1, 0 },
 	{ 5, "space", space,     0, 0 },
-	{ 4, "line",  line,      0, 0 },
 	{ 4, "emit",  emit,      1, 0 },
 
 	{ 1, "[",     quote_code, 0, 1 }, // ( -- codequote )
@@ -559,9 +703,11 @@ struct WordLookup words[] =
 	{ 4, "copy",    img_copy,   1, 2 }, // ( img1 -- img1 img2 ) makes a copy of an image
 	{ 4, "save",    img_save,   2, 1 }, // ( img name -- img ) name is an int to append to filename
 	{ 4, "load",    img_load,   1, 1 }, // ( name -- img ) name is an int to append to filename
-	{ 4, "rect",     img_rect,     5, 1 }, // ( img x0 y0 w h val -- img ) draw rectangle
-	{ 8, "fillrect", img_fillrect, 5, 1 }, // ( img x0 y0 w h val -- img ) fill rectangle
-	{ 4, "line",     img_line,     5, 1 }, // ( img x0 y0 x1 y1 val -- img ) draw line
+	{ 4,"rect",     img_rect,   5, 1 }, // ( img x0 y0 w h val -- img ) draw rectangle
+	{ 8,"fillrect",img_fillrect,5, 1 }, // ( img x0 y0 w h val -- img ) fill rectangle
+	{ 4,"line",     img_line,   6, 1 }, // ( img x0 y0 x1 y1 val -- img ) draw line
+	{ 4, "crop",    img_crop,   5, 1 }, // ( img x0 y0 w h -- img ) crop image to rect
+	{ 4, "blit",    img_blit,   4, 1 }, // ( img1 img2 x0 y0 -- img1 ) blit img2 onto img1
 };
 struct WordDict dict =
 {
@@ -569,9 +715,15 @@ struct WordDict dict =
 	.words = words,
 };
 
-int main(void)
+int main(int argc, char **argv)
 {
-	const char *fname = "script.txt";
+	if (argc < 2)
+	{
+		printf("error: missing required argument: file\n");
+		return 1;
+	}
+
+	const char *fname = argv[1];
 	FILE *fp = fopen(fname, "r");
 	if (!fp)
 	{
@@ -593,11 +745,18 @@ int main(void)
 		code = runScript(size, script, &dict);
 		if (code)
 		{
-			printf("error: %d: %s\n", code, errMessage(code));
-		}
-		else
-		{
-			printf("success\n");
+			printf("error: %d: %s", code, errMessage(code));
+			if (prog && code == ERROR_WORD_NAME)
+			{
+				const char *wstart;
+				int wlen;
+				word(prog, &wstart, &wlen);
+				printf(": %.*s\n", wlen, wstart);
+			}
+			else
+			{
+				printf("\n");
+			}
 		}
 	}
 	free(script);
