@@ -1,0 +1,24 @@
+64 dup alloc
+0 value clear
+
+32 32 52 32 30 value line
+32 32 50 38 40 value line
+32 32 47 44 50 value line
+32 32 42 49 60 value line
+32 32 35 51 70 value line
+32 32 28 51 80 value line
+32 32 22 49 90 value line
+32 32 16 44 100 value line
+32 32 13 38 110 value line
+32 32 12 32 120 value line
+32 32 13 25 130 value line
+32 32 16 19 140 value line
+32 32 21 14 150 value line
+32 32 28 12 160 value line
+32 32 35 12 170 value line
+32 32 42 14 180 value line
+32 32 47 19 190 value line
+32 32 50 25 200 value line
+
+1 save free
+
