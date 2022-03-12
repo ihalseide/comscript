@@ -26,6 +26,7 @@ struct WordDict
 	struct WordLookup *words; // array of word-lookups
 };
 
+const char *prog;
 int dstack[DATA_STACK_SZ]; // Data stack
 int dI; // Data stack index
 
@@ -65,9 +66,6 @@ void nip(void);       // Stack effect: ( x y -- y ),    WordEntry: { 3, "nip",  
 // data stack and index
 int dstack[DATA_STACK_SZ];
 int dI = 0;
-
-// Internal for runScript
-static int isRunning = 1;
 
 int dtop(void)
 {
@@ -122,7 +120,11 @@ void word(const char *in, const char **start, int *len)
 	{
 		i++;
 	}
-	*len = i - startI;
+
+	if (len)
+	{
+		*len = i - startI;
+	}
 }
 
 static int streq(const char *a, const char *b, int len)
@@ -217,14 +219,20 @@ int find(struct WordDict *dict, int wordLen, const char *word)
 
 int runScript(int len, const char *str, struct WordDict *dict)
 {
-	const char *prog = str;
+	prog = str;
 	const char *wstart = NULL; // word start
 	int wlen = 0; // word length
-	while (isRunning)
+	while (1)
 	{
+		// Reached end of program?
+		if (prog - str >= len)
+		{
+			break;
+		}
+
 		// Read a word from the program string;
 		word(prog, &wstart, &wlen);
-		if (!wlen)
+		if (!wlen || wstart - str >= len)
 		{
 			// End of input
 			break;
@@ -250,7 +258,15 @@ int runScript(int len, const char *str, struct WordDict *dict)
 			else
 			{
 				// Execute it.
+				const char *save_prog = prog;
 				w.func();
+				// If the function modified the prog pointer,
+				// then skip the part of the outer while loop
+				// where prog is changed the end next word.
+				if (prog != save_prog)
+				{
+					continue;
+				}
 			}
 		}
 		else if (isdigit(*wstart))

@@ -20,38 +20,69 @@ struct Image
 	int *colors;
 };
 
+struct CodeQuote
+{
+	int length;
+	const char *start;
+};
+
+struct WordDict dict;
+
 // Array for holding allocated images
 struct Image **imagesArr = NULL;
+
+// Array for holding allocated code quotations
+struct CodeQuote **quotesArr = NULL;
 
 int is_img(int i)
 {
 	return 0 <= i && i < arrlen(imagesArr);
 }
 
+int is_quote(int i)
+{
+	return 0 <= i && i < arrlen(quotesArr);
+}
+
 // ( r g b a -- rgba )
 void rgba(void)
 {
-	char a = dpop();
-	char b = dpop();
-	char g = dpop();
-	char r = dpop();
-	dpush( (r << 24) + (g << 16) + (b << 8) + a );
+	unsigned char a = dpop();
+	unsigned char b = dpop();
+	unsigned char g = dpop();
+	unsigned char r = dpop();
+	int rgba = r + (g << 8) + (b << 16) + (a << 24);
+	dpush(rgba);
 }
 
 // ( r g b -- rgba )
 void rgb(void)
 {
-	char b = dpop();
-	char g = dpop();
-	char r = dpop();
-	dpush( (r << 24) + (g << 16) + (b << 8) + 255 );
+	unsigned char b = dpop();
+	unsigned char g = dpop();
+	unsigned char r = dpop();
+	unsigned int rgba = r + (g << 8) + (b << 16) + (255 << 24);
+	dpush(rgba);
 }
 
 // ( v -- rgba )
 void value(void)
 {
-	char v = dpop();
-	dpush( (v << 24) + (v << 16) + (v << 8) + 255 );
+	unsigned char v = dpop();
+	int rgba = v + (v << 8) + (v << 16) + (255 << 24);
+	dpush(rgba);
+}
+
+// ( rgba -- rgba )
+void rgb_invert(void)
+{
+	unsigned int rgba = dpop();
+	unsigned char r = ~(rgba & 255);
+	unsigned char g = ~((rgba >> 8) & 255);
+	unsigned char b = ~((rgba >> 16) & 255);
+	unsigned char a = (rgba >> 24) & 255;
+	unsigned int rgba2 = r + (g << 8) + (b << 16) + (a << 24);
+	dpush(rgba2);
 }
 
 void img_width(void)
@@ -82,10 +113,10 @@ void img_height(void)
 	}
 }
 
-// ( img x0 y0 w h val -- img ) draw rectangle
+// ( img x0 y0 w h rgba -- img ) draw rectangle
 void img_rect(void)
 {
-	int val = dpop();
+	unsigned int val = dpop();
 	int h = dpop();
 	int w = dpop();
 	int y0 = dpop();
@@ -100,6 +131,18 @@ void img_rect(void)
 	struct Image *p = imagesArr[img];
 	int imgW = p->width;
 	int imgH = p->height;
+
+	if (x0 + w > imgW)
+	{
+		printf("rect: too wide for image");
+		return;
+	}
+
+	if (y0 + h > imgH)
+	{
+		printf("rect: too high for image");
+		return;
+	}
 
 	// Horizontal lines
 	for (int x = x0; x < (x0 + w) && x < imgW; x++)
@@ -140,6 +183,18 @@ void img_fillrect(void)
 	struct Image *p = imagesArr[img];
 	int imgW = p->width;
 	int imgH = p->height;
+
+	if (x0 + w > imgW)
+	{
+		printf("rect: too wide for image");
+		return;
+	}
+
+	if (y0 + h > imgH)
+	{
+		printf("rect: too high for image");
+		return;
+	}
 
 	for (int x = x0; x < (x0 + w) && x < imgW; x++)
 	{
@@ -391,20 +446,77 @@ void img_save(void)
 	}
 	struct Image *p = imagesArr[img];
 
+	// Create name
 	char name[100];
-	snprintf(name, sizeof(name), "img%d.png", suffix);
+	snprintf(name, sizeof(name), "save-%d.png", suffix);
 
 	int width = p->width;
 	int height = p->height;
-
 	void *data = p->colors;
 	int comp = sizeof(*p->colors);
 	int stride = width * sizeof(*p->colors);
 	int success = stbi_write_png(name, width, height, comp, data, stride);
-
 	if (!success)
 	{
 		printf("could not save image #%d\n", img);
+	}
+}
+
+// ( name -- img )
+void img_load(void)
+{
+	// TODO: implement
+	dpop();
+	dpush(-1);
+}
+
+void bye(void)
+{
+	printf("bye\n");
+	exit(0);
+}
+
+void quote_code(void)
+{
+	// Skip opening bracket
+	prog++;
+
+	const char *quote_begin = prog;
+	while (*prog && *prog != ']')
+	{
+		prog++;
+	}
+
+	if (*prog == ']')
+	{
+		// Skip closing bracket
+		prog++;
+
+		// TODO: free this allocated quote at the end of the program
+		int len = prog - quote_begin - 1;
+		struct CodeQuote *new = malloc(sizeof(*new));
+		new->length = len;
+		new->start = quote_begin;
+		int index = arrlen(quotesArr);
+		arrpush(quotesArr, new);
+		dpush(index);
+	}
+	else
+	{
+		printf("quote error\n");
+		dpush(-1);
+	}
+}
+
+void do_quote(void)
+{
+	int quote = dpop();
+	if (is_quote(quote))
+	{
+		const char *save_prog = prog;
+		struct CodeQuote *p = quotesArr[quote];
+		runScript(p->length, p->start, &dict);
+		prog = save_prog;
 	}
 }
 
@@ -420,15 +532,20 @@ struct WordLookup words[] =
 	{ 4, "over",  over,      2, 3 },
 	{ 3, "nip",   nip,       2, 1 },
 
+	{ 3, "bye",   bye,       0, 0 },
 	{ 2, ".s",    dispstack, 0, 0 },
 	{ 1, ".",     dprint,    1, 0 },
 	{ 5, "space", space,     0, 0 },
 	{ 4, "line",  line,      0, 0 },
 	{ 4, "emit",  emit,      1, 0 },
 
-	{ 3, "rgb",   rgb,       3, 1 }, // ( r g b -- rgba )
-	{ 4, "rgba",  rgba,      4, 1 }, // ( r g b a -- rgba )
-	{ 5, "value", value,     1, 1 }, // ( val -- rgba )
+	{ 1, "[",     quote_code, 0, 1 }, // ( -- codequote )
+	{ 2, "do",    do_quote,   1, 0 }, // ( codequote -- )
+
+	{ 3, "rgb",        rgb,    3, 1 }, // ( r g b -- rgba )
+	{ 4, "rgba",       rgba,   4, 1 }, // ( r g b a -- rgba )
+	{ 5, "value",      value,  1, 1 }, // ( val -- rgba )
+	{ 10, "rgb.invert", rgb_invert, 1, 1 }, // ( rgba1 -- rgba2 ) invert rgb values
 
 	{ 7, "display", img_disp,   1, 1 }, // ( img -- img )
 	{ 5, "alloc",   img_alloc,  2, 1 }, // ( w h -- img )
@@ -440,7 +557,8 @@ struct WordLookup words[] =
 	{ 3, "set",     img_set,    4, 2 }, // ( img x y val -- img val )
 	{ 5, "iswap",   img_swap,   5, 1 }, // ( img x1 y1 x2 y2 -- img ) swaps values in image
 	{ 4, "copy",    img_copy,   1, 2 }, // ( img1 -- img1 img2 ) makes a copy of an image
-	{ 4, "save",    img_save,   2, 1 }, // ( img name -- img ) name is a number to append to filename
+	{ 4, "save",    img_save,   2, 1 }, // ( img name -- img ) name is an int to append to filename
+	{ 4, "load",    img_load,   1, 1 }, // ( name -- img ) name is an int to append to filename
 	{ 4, "rect",     img_rect,     5, 1 }, // ( img x0 y0 w h val -- img ) draw rectangle
 	{ 8, "fillrect", img_fillrect, 5, 1 }, // ( img x0 y0 w h val -- img ) fill rectangle
 	{ 4, "line",     img_line,     5, 1 }, // ( img x0 y0 x1 y1 val -- img ) draw line
@@ -453,16 +571,36 @@ struct WordDict dict =
 
 int main(void)
 {
-	const char s[] = "64 dup alloc 255 255 255 rgb clear 5 5 10 10 255 value fillrect 55 save free";
-	int code = runScript(strlen(s), s, &dict);
-	if (code)
+	const char *fname = "script.txt";
+	FILE *fp = fopen(fname, "r");
+	if (!fp)
 	{
-		printf("error: %d: %s\n", code, errMessage(code));
+		printf("error: could not open \"%s\"\n", fname);
+		return 1;
 	}
-	else
+
+	fseek(fp, 0, SEEK_END); // seek to end of file
+	int size = ftell(fp); // get current file pointer
+	fseek(fp, 0, SEEK_SET); // seek back to beginning of file
+
+	char *script = malloc(size);
+    int num = fread(script, 1, size, fp);
+	fclose(fp);
+
+	int code = 1;
+	if (num == size)
 	{
-		printf("success\n");
+		code = runScript(size, script, &dict);
+		if (code)
+		{
+			printf("error: %d: %s\n", code, errMessage(code));
+		}
+		else
+		{
+			printf("success\n");
+		}
 	}
+	free(script);
 	return code;
 }
 
