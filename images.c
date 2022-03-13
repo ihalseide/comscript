@@ -208,18 +208,6 @@ void img_fillrect(void)
 	int imgW = p->width;
 	int imgH = p->height;
 
-	if (x0 + w > imgW)
-	{
-		printf("rect: too wide for image");
-		return;
-	}
-
-	if (y0 + h > imgH)
-	{
-		printf("rect: too high for image");
-		return;
-	}
-
 	for (int x = x0; x < (x0 + w) && x < imgW; x++)
 	{
 		for (int y = y0; y < (y0 + h) && y < imgH; y++)
@@ -273,32 +261,32 @@ void img_line(void)
 
 	int dx = x1 - x0;
 	if (dx < 0) { dx = -dx; }
-    int sx = (x0 < x1)? 1 : -1;
-    int dy = y1 - y0;
+	int sx = (x0 < x1)? 1 : -1;
+	int dy = y1 - y0;
 	if (dy > 0) { dy = -dy; }
-    int sy = (y0 < y1)? 1 : -1;
-    int error = dx + dy;
+	int sy = (y0 < y1)? 1 : -1;
+	int error = dx + dy;
 	int e2;
-    while (1)
+	while (1)
 	{
 		// Plot (x0, y0)
 		int i = x0 + y0 * p->width;
 		assert(0 <= i && i < p->width * p->height);
 		p->colors[i] = val;
 
-        if (x0 == x1 && y0 == y1) { break; }
-        e2 = 2 * error;
-        if (e2 >= dy)
+		if (x0 == x1 && y0 == y1) { break; }
+		e2 = 2 * error;
+		if (e2 >= dy)
 		{
-            if (x0 == x1) { break; }
-            error = error + dy;
-            x0 = x0 + sx;
+			if (x0 == x1) { break; }
+			error = error + dy;
+			x0 = x0 + sx;
 		}
-        if (e2 <= dx)
+		if (e2 <= dx)
 		{
-            if (y0 == y1) { break; }
-            error = error + dx;
-            y0 = y0 + sy;
+			if (y0 == y1) { break; }
+			error = error + dx;
+			y0 = y0 + sy;
 		}
 	}
 }
@@ -862,7 +850,7 @@ int main(int argc, char **argv)
 	fseek(fp, 0, SEEK_SET); // seek back to beginning of file
 
 	char *script = malloc(size);
-    int num = fread(script, 1, size, fp);
+	int num = fread(script, 1, size, fp);
 	fclose(fp);
 
 	int code = 1;
