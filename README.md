@@ -2,5 +2,7 @@
 
 Use comscript.h as a mini library!
 
-Compile main.c for a command-line program!
+# Images
+
+gcc -o images -g images.c -lm
 
