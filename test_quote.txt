@@ -1,0 +1,5 @@
+[ 42 emit ] do
+[ 65 emit ] 5 times
+10 emit
+bye
+
