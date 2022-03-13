@@ -693,14 +693,14 @@ void img_blit(void)
 		printf("blit: img2 not an image\n");
 		return;
 	}
-	struct Image *p2 = imagesArr[img2];
-
 	if (!is_img(img1))
 	{
 		printf("blit: img1 not an image\n");
 		return;
 	}
+
 	struct Image *p1 = imagesArr[img1];
+	struct Image *p2 = imagesArr[img2];
 
 	int i, val;
 	for (int x = 0; x < p2->width && (x0 + x) < p1->width; x++)
