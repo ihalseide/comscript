@@ -552,13 +552,6 @@ void img_load(void)
 		dpush(-1);
 		return;
 	}
-	if (n != requiredN)
-	{
-		printf("could not load image file \"%s\" with %d channels (%d required)\n",
-				fname, n, requiredN);
-		dpush(-1);
-		return;
-	}
 
 	// Alloc new image struct
 	struct Image *new = malloc(sizeof(*new));
