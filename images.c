@@ -581,8 +581,14 @@ void bye(void)
 	exit(0);
 }
 
+// Runs when a '[' is first encountered
 void quote_code(void)
 {
+	// Skip to opening bracket
+	while (*prog && *prog != '[')
+	{
+		prog++;
+	}
 	// Skip opening bracket
 	prog++;
 
@@ -602,17 +608,19 @@ void quote_code(void)
 		struct CodeQuote *new = malloc(sizeof(*new));
 		new->length = len;
 		new->start = quote_begin;
+
 		int index = arrlen(quotesArr);
 		arrpush(quotesArr, new);
 		dpush(index);
 	}
 	else
 	{
-		printf("quote error\n");
+		printf("quoting word '[' : error\n");
 		dpush(-1);
 	}
 }
 
+// ( quote -- ? )
 void do_quote(void)
 {
 	int quote = dpop();
@@ -623,6 +631,28 @@ void do_quote(void)
 		runScript(p->length, p->start, &dict);
 		prog = save_prog;
 	}
+}
+
+// ( quote n -- ? ) do quote n times
+void do_times(void)
+{
+	int n = dpop();
+	int q = dpop();
+
+	if (!is_quote(q))
+	{
+		printf("repeat: %d is not a valid quote id\n", q);
+		return;
+	}
+
+	const char *save_prog = prog;
+	struct CodeQuote *p = quotesArr[q];
+	while (n > 0)
+	{
+		runScript(p->length, p->start, &dict);
+		n--;
+	}
+	prog = save_prog;
 }
 
 // ( img x0 y0 w h -- img ) crop image to rect
@@ -761,48 +791,49 @@ void img_equal(void)
 
 struct WordLookup words[] =
 {
-	{ 1, "+",     add,       2, 1 },
-	{ 1, "-",     subtract,  2, 1 },
-	{ 1, "*",     multiply,  2, 1 },
-	{ 1, "/",     divide,    2, 1 },
-	{ 4, "drop",  drop,      1, 0 },
-	{ 3, "dup",   duplicate, 1, 2 },
-	{ 4, "swap",  swap,      2, 2 },
-	{ 4, "over",  over,      2, 3 },
-	{ 3, "nip",   nip,       2, 1 },
+	{1, "+",     add,       2, 1},
+	{1, "-",     subtract,  2, 1},
+	{1, "*",     multiply,  2, 1},
+	{1, "/",     divide,    2, 1},
+	{4, "drop",  drop,      1, 0},
+	{3, "dup",   duplicate, 1, 2},
+	{4, "swap",  swap,      2, 2},
+	{4, "over",  over,      2, 3},
+	{3, "nip",   nip,       2, 1},
 
-	{ 3, "bye",   bye,       0, 0 },
-	{ 2, ".s",    dispstack, 0, 0 },
-	{ 1, ".",     dprint,    1, 0 },
-	{ 5, "space", space,     0, 0 },
-	{ 4, "emit",  emit,      1, 0 },
+	{3, "bye",   bye,       0, 0},
+	{2, ".s",    dispstack, 0, 0},
+	{1, ".",     dprint,    1, 0},
+	{5, "space", space,     0, 0},
+	{4, "emit",  emit,      1, 0},
 
-	{ 1, "[",     quote_code, 0, 1 }, // ( -- codequote )
-	{ 2, "do",    do_quote,   1, 0 }, // ( codequote -- )
+	{1, "[",     quote_code, 0, 1}, // ( -- codequote )
+	{2, "do",    do_quote,   1, 0}, // ( codequote -- ? )
+	{5, "times", do_times,   2, 0}, // ( codequote n -- ? )
 
-	{ 3, "rgb",        rgb,    3, 1 }, // ( r g b -- rgba )
-	{ 4, "rgba",       rgba,   4, 1 }, // ( r g b a -- rgba )
-	{ 5, "value",      value,  1, 1 }, // ( val -- rgba )
-	{ 10, "rgb.invert", rgb_invert, 1, 1 }, // ( rgba1 -- rgba2 ) invert rgb values
+	{3,  "rgb",        rgb,    3, 1},     // ( r g b -- rgba )
+	{4,  "rgba",       rgba,   4, 1},     // ( r g b a -- rgba )
+	{5,  "value",      value,  1, 1},     // ( val -- rgba )
+	{10, "rgb.invert", rgb_invert, 1, 1}, // ( rgba1 -- rgba2 ) invert rgb values
 
-	{ 7, "display", img_disp,   1, 1 }, // ( img -- img )
-	{ 5, "alloc",   img_alloc,  2, 1 }, // ( w h -- img )
-	{ 4, "free",    img_free,   1, 0 }, // ( img -- )
-	{ 5, "width",   img_width,  1, 2 }, // ( img -- img w )
-	{ 6, "height",  img_height, 1, 2 }, // ( img -- img h )
-	{ 5, "clear",   img_clear,  2, 1 }, // ( img val -- img )
-	{ 3, "get",     img_get,    3, 2 }, // ( img x y -- img val )
-	{ 3, "set",     img_set,    4, 2 }, // ( img x y val -- img val )
-	{ 5, "iswap",   img_swap,   5, 1 }, // ( img x1 y1 x2 y2 -- img ) swaps values in image
-	{ 4, "copy",    img_copy,   1, 2 }, // ( img1 -- img1 img2 ) makes a copy of an image
-	{ 4, "save",    img_save,   2, 1 }, // ( img name -- img ) name is an int to append to filename
-	{ 4, "load",    img_load,   1, 1 }, // ( name -- img ) name is an int to append to filename
-	{ 4,"rect",     img_rect,   5, 1 }, // ( img x0 y0 w h val -- img ) draw rectangle
-	{ 8,"fillrect",img_fillrect,5, 1 }, // ( img x0 y0 w h val -- img ) fill rectangle
-	{ 4,"line",     img_line,   6, 1 }, // ( img x0 y0 x1 y1 val -- img ) draw line
-	{ 4, "crop",    img_crop,   5, 1 }, // ( img x0 y0 w h -- img ) crop image to rect
-	{ 4, "blit",    img_blit,   4, 1 }, // ( img1 img2 x0 y0 -- img1 ) blit img2 onto img1
-	{ 4, "img=",    img_equal,  2, 1 }, // ( img1 img2 -- flag ) see if 2 images have same data
+	{7, "display",  img_disp,     1, 1 }, // ( img -- img )
+	{5, "alloc",    img_alloc,    2, 1 }, // ( w h -- img )
+	{4, "free",     img_free,     1, 0 }, // ( img -- )
+	{5, "width",    img_width,    1, 2 }, // ( img -- img w )
+	{6, "height",   img_height,   1, 2 }, // ( img -- img h )
+	{5, "clear",    img_clear,    2, 1 }, // ( img val -- img )
+	{3, "get",      img_get,      3, 2 }, // ( img x y -- img val )
+	{3, "set",      img_set,      4, 2 }, // ( img x y val -- img val )
+	{5, "iswap",    img_swap,     5, 1 }, // ( img x1 y1 x2 y2 -- img ) swaps values in image
+	{4, "copy",     img_copy,     1, 2 }, // ( img1 -- img1 img2 ) makes a copy of an image
+	{4, "save",     img_save,     2, 1 }, // ( img name -- img ) name is an int to append to filename
+	{4, "load",     img_load,     1, 1 }, // ( name -- img ) name is an int to append to filename
+	{4, "rect",     img_rect,     5, 1 }, // ( img x0 y0 w h val -- img ) draw rectangle
+	{8, "fillrect", img_fillrect, 5, 1 }, // ( img x0 y0 w h val -- img ) fill rectangle
+	{4, "line",     img_line,     6, 1 }, // ( img x0 y0 x1 y1 val -- img ) draw line
+	{4, "crop",     img_crop,     5, 1 }, // ( img x0 y0 w h -- img ) crop image to rect
+	{4, "blit",     img_blit,     4, 1 }, // ( img1 img2 x0 y0 -- img1 ) blit img2 onto img1
+	{4, "img=",     img_equal,    2, 1 }, // ( img1 img2 -- flag ) see if 2 images have same data
 };
 struct WordDict dict =
 {
