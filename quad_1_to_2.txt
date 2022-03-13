@@ -1,4 +1,4 @@
-2 load
+1 load
 width 2 * over height 2 * nip alloc
 over 0 0 blit
 over width 0 blit
@@ -6,5 +6,5 @@ over height 0 swap blit
 over width over height nip blit
 swap
 free
-3 save free
+2 save free
 
